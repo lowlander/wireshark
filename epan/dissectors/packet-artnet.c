@@ -4125,7 +4125,6 @@ dissect_artnet_rdm(tvbuff_t *tvb, guint offset, proto_tree *tree,  packet_info *
   guint8    rdmver;
   guint8    sc;
   guint     size;
-  gboolean  save_info;
   tvbuff_t *next_tvb;
 
   rdmver = tvb_get_guint8(tvb, offset);
@@ -4183,14 +4182,9 @@ dissect_artnet_rdm(tvbuff_t *tvb, guint offset, proto_tree *tree,  packet_info *
 
   size = tvb_reported_length_remaining(tvb, offset);
 
-  save_info = col_get_writable(pinfo->cinfo, COL_INFO);
-  col_set_writable(pinfo->cinfo, COL_INFO, FALSE);
-
   next_tvb = tvb_new_subset_remaining(tvb, offset);
 
   call_dissector(rdm_handle, next_tvb, pinfo, base_tree);
-
-  col_set_writable(pinfo->cinfo, COL_INFO, save_info);
 
   return offset + size;
 }
