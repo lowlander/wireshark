@@ -2137,64 +2137,65 @@ dissect_rdm_mdb(tvbuff_t *tvb, guint offset, proto_tree *tree)
 static int
 dissect_rdm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
+	gint	    padding_size;
+	guint16	    src_man_id, dst_man_id;
+	guint32	    src_dev_id, dst_dev_id;
+	guint       message_length, offset = 0;
+
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "RDM");
-	col_clear(pinfo->cinfo, COL_INFO);
 
-	if (tree) {
-		gint	    padding_size;
-		guint16	    man_id;
-		guint32	    dev_id;
-		guint       message_length, offset = 0;
+	proto_tree *ti = proto_tree_add_item(tree, proto_rdm, tvb,
+			offset, -1, ENC_NA);
+	proto_tree *rdm_tree = proto_item_add_subtree(ti, ett_rdm);
 
-		proto_tree *ti = proto_tree_add_item(tree, proto_rdm, tvb,
-				offset, -1, ENC_NA);
-		proto_tree *rdm_tree = proto_item_add_subtree(ti, ett_rdm);
+	proto_tree_add_item(rdm_tree, hf_rdm_sub_start_code, tvb,
+			offset, 1, ENC_BIG_ENDIAN);
+	offset += 1;
 
-		proto_tree_add_item(rdm_tree, hf_rdm_sub_start_code, tvb,
-				offset, 1, ENC_BIG_ENDIAN);
-		offset += 1;
+	message_length = tvb_get_guint8(tvb, offset);
+	proto_tree_add_item(rdm_tree, hf_rdm_message_length, tvb,
+			offset, 1, ENC_BIG_ENDIAN);
+	offset += 1;
 
-		message_length = tvb_get_guint8(tvb, offset);
-		proto_tree_add_item(rdm_tree, hf_rdm_message_length, tvb,
-				offset, 1, ENC_BIG_ENDIAN);
-		offset += 1;
+	dst_man_id = tvb_get_ntohs(tvb, offset);
+	dst_dev_id = tvb_get_ntohl(tvb, offset + 2);
+	proto_tree_add_item(rdm_tree, hf_rdm_dest_uid, tvb,
+			offset, 6, ENC_NA);
+	offset += 6;
 
-		man_id = tvb_get_ntohs(tvb, offset);
-		dev_id = tvb_get_ntohl(tvb, offset + 2);
-		proto_item_append_text(ti, ", Dst UID: %04x:%08x", man_id, dev_id);
-		proto_tree_add_item(rdm_tree, hf_rdm_dest_uid, tvb,
-				offset, 6, ENC_NA);
-		offset += 6;
+	src_man_id = tvb_get_ntohs(tvb, offset);
+	src_dev_id = tvb_get_ntohl(tvb, offset + 2);
+	proto_tree_add_item(rdm_tree, hf_rdm_src_uid, tvb,
+			offset, 6, ENC_NA);
+	offset += 6;
 
+	proto_item_append_text(ti, ", Src: %04x:%08x, Dst: %04x:%08x",
+		src_man_id, src_dev_id, dst_man_id, dst_dev_id);
 
-		man_id = tvb_get_ntohs(tvb, offset);
-		dev_id = tvb_get_ntohl(tvb, offset + 2);
-		proto_item_append_text(ti, ", Src UID: %04x:%08x", man_id, dev_id);
-		proto_tree_add_item(rdm_tree, hf_rdm_src_uid, tvb,
-				offset, 6, ENC_NA);
-		offset += 6;
+	col_append_fstr(pinfo->cinfo, COL_INFO, ", Src: %04x:%08x, Dst: %04x:%08x",
+		src_man_id, src_dev_id, dst_man_id, dst_dev_id);
 
-		proto_tree_add_item(rdm_tree, hf_rdm_transaction_number, tvb,
-				offset, 1, ENC_BIG_ENDIAN);
-		offset += 1;
+	proto_tree_add_item(rdm_tree, hf_rdm_transaction_number, tvb,
+			offset, 1, ENC_BIG_ENDIAN);
+	offset += 1;
 
-		offset = dissect_rdm_mdb(tvb, offset, rdm_tree);
+	offset = dissect_rdm_mdb(tvb, offset, rdm_tree);
 
-		padding_size = offset - (message_length - 1);
-		if (padding_size > 0) {
-			proto_tree_add_item(rdm_tree, hf_rdm_intron, tvb,
-					offset, padding_size, ENC_NA);
-			offset += padding_size;
-		}
-
-		proto_tree_add_checksum(rdm_tree, tvb, offset, hf_rdm_checksum, hf_rdm_checksum_status, &ei_rdm_checksum, pinfo, rdm_checksum(tvb, offset),
-							ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
-		offset += 2;
-
-		if (offset < tvb_reported_length(tvb))
-			proto_tree_add_item(rdm_tree, hf_rdm_trailer, tvb,
-					offset, -1, ENC_NA);
+	padding_size = offset - (message_length - 1);
+	if (padding_size > 0) {
+		proto_tree_add_item(rdm_tree, hf_rdm_intron, tvb,
+				offset, padding_size, ENC_NA);
+		offset += padding_size;
 	}
+
+	proto_tree_add_checksum(rdm_tree, tvb, offset, hf_rdm_checksum, hf_rdm_checksum_status, &ei_rdm_checksum, pinfo, rdm_checksum(tvb, offset),
+						ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
+	offset += 2;
+
+	if (offset < tvb_reported_length(tvb))
+		proto_tree_add_item(rdm_tree, hf_rdm_trailer, tvb,
+				offset, -1, ENC_NA);
+
 	return tvb_captured_length(tvb);
 }
 
